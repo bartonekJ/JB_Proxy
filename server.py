@@ -1,14 +1,16 @@
 from flask import Flask, request, jsonify
-import requests
 from bs4 import BeautifulSoup
+import requests
 import json
 
 app = Flask(__name__)
 
 def scrape_model(url):
     try:
-        # Fetch HTML
-        headers = {"User-Agent": "Mozilla/5.0"}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
+        
         r = requests.get(url, headers=headers, timeout=20)
 
         if r.status_code != 200:
@@ -16,26 +18,47 @@ def scrape_model(url):
 
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # Extract the Next.js JSON block
+        data = None
+
+        # Try JSON from Next.js
         script = soup.find("script", id="__NEXT_DATA__")
-        if not script:
-            return {"error": "NEXT_DATA not found"}
+        if script and script.string:
+            try:
+                data = json.loads(script.string)
+            except:
+                data = None
 
-        data = json.loads(script.string)
+        # Try JSON from Rails store
+        if not data:
+            alt = soup.find("script", attrs={"data-js-react-on-rails-store": True})
+            if alt and alt.string:
+                try:
+                    data = json.loads(alt.string)
+                except:
+                    data = None
 
-        # Navigate the structure
-        model = data["props"]["pageProps"]["model"]
+        if not data:
+            return {"error": "Model data not found"}
 
-        title = model.get("title", None)
+        # Normalize structure
+        try:
+            model = data["props"]["pageProps"]["model"]
+        except:
+            model = data.get("model", {})
 
+        if not model:
+            return {"error": "Model section missing"}
+
+        title = model.get("title")
+        
         stats = model.get("statistics", {})
-        views = stats.get("views", None)
-        downloads = stats.get("downloads", None)
-        likes = stats.get("likes", None)
+        views = stats.get("views")
+        downloads = stats.get("downloads")
+        likes = stats.get("likes")
 
-        sales = stats.get("sales", {})
-        price = sales.get("price", None)
-        total = sales.get("total", None)
+        sales = model.get("sales", {})
+        price = sales.get("price")
+        total = sales.get("total")
 
         return {
             "title": title,
@@ -58,4 +81,4 @@ def stats():
 
 @app.route("/")
 def home():
-    return "Cults3D Lightweight Proxy Running!"
+    return "Cults3D Non-Playwright Proxy Running!"
