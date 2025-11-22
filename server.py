@@ -1,5 +1,8 @@
 from flask import Flask, request, jsonify
 from playwright.sync_api import sync_playwright
+import os
+
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/ms-playwright"
 
 app = Flask(__name__)
 
@@ -12,18 +15,11 @@ def scrape_model(url):
             page.goto(url, timeout=60000)
             page.wait_for_load_state("networkidle")
 
-            # Title
             title = page.locator("h1").inner_text()
-
-            # Stats
             likes = page.locator('[title="Likes"]').inner_text()
             downloads = page.locator('[title="Downloads"]').inner_text()
             views = page.locator('[title="Views"]').inner_text()
-
-            # Price
             price = page.locator('[data-js="price"]').inner_text()
-
-            # Total earned
             total = page.locator('[title="Total earned"]').inner_text()
 
             browser.close()
