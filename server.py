@@ -1,41 +1,53 @@
 from flask import Flask, request, jsonify
-from playwright.sync_api import sync_playwright
-import os
-
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/ms-playwright"
+import requests
+from bs4 import BeautifulSoup
+import json
 
 app = Flask(__name__)
 
 def scrape_model(url):
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+    try:
+        # Fetch HTML
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(url, headers=headers, timeout=20)
 
-        try:
-            page.goto(url, timeout=60000)
-            page.wait_for_load_state("networkidle")
+        if r.status_code != 200:
+            return {"error": f"HTTP {r.status_code}"}
 
-            title = page.locator("h1").inner_text()
-            likes = page.locator('[title="Likes"]').inner_text()
-            downloads = page.locator('[title="Downloads"]').inner_text()
-            views = page.locator('[title="Views"]').inner_text()
-            price = page.locator('[data-js="price"]').inner_text()
-            total = page.locator('[title="Total earned"]').inner_text()
+        soup = BeautifulSoup(r.text, "html.parser")
 
-            browser.close()
+        # Extract the Next.js JSON block
+        script = soup.find("script", id="__NEXT_DATA__")
+        if not script:
+            return {"error": "NEXT_DATA not found"}
 
-            return {
-                "title": title,
-                "price": price,
-                "likes": likes,
-                "downloads": downloads,
-                "views": views,
-                "total": total
-            }
+        data = json.loads(script.string)
 
-        except Exception as e:
-            browser.close()
-            return {"error": str(e)}
+        # Navigate the structure
+        model = data["props"]["pageProps"]["model"]
+
+        title = model.get("title", None)
+
+        stats = model.get("statistics", {})
+        views = stats.get("views", None)
+        downloads = stats.get("downloads", None)
+        likes = stats.get("likes", None)
+
+        sales = stats.get("sales", {})
+        price = sales.get("price", None)
+        total = sales.get("total", None)
+
+        return {
+            "title": title,
+            "views": views,
+            "downloads": downloads,
+            "likes": likes,
+            "price": price,
+            "total": total
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.route("/stats")
 def stats():
@@ -46,4 +58,4 @@ def stats():
 
 @app.route("/")
 def home():
-    return "Cults3D Playwright Proxy Running!"
+    return "Cults3D Lightweight Proxy Running!"
