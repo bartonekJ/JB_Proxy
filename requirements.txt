@@ -1,5 +1,4 @@
 flask
 gunicorn
-beautifulsoup4
 requests
 playwright
