@@ -1,5 +1,7 @@
 FROM mcr.microsoft.com/playwright/python:v1.48.0-jammy
 
+RUN echo "force_render_rebuild_001"
+
 WORKDIR /app
 
 COPY requirements.txt /app/
