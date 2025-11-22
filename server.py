@@ -1,65 +1,53 @@
-from flask import Flask, jsonify, request
-import requests
-from bs4 import BeautifulSoup
-import os
+from flask import Flask, request, jsonify
+from playwright.sync_api import sync_playwright
 
 app = Flask(__name__)
 
-def parse_model(url):
-    headers = {"User-Agent": "Mozilla/5.0"}
-    try:
-        html = requests.get(url, headers=headers, timeout=15).text
-    except Exception as e:
-        return {"error": f"Download failed: {e}"}
+def scrape_model(url):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
 
-    soup = BeautifulSoup(html, "html.parser")
+        try:
+            page.goto(url, timeout=60000)
+            page.wait_for_load_state("networkidle")
 
-    stats = {
-        "title": None,
-        "price": None,
-        "likes": None,
-        "downloads": None,
-        "views": None,
-        "total": None
-    }
+            # Title
+            title = page.locator("h1").inner_text()
 
-    h1 = soup.find("h1")
-    if h1:
-        stats["title"] = h1.text.strip()
+            # Stats
+            likes = page.locator('[title="Likes"]').inner_text()
+            downloads = page.locator('[title="Downloads"]').inner_text()
+            views = page.locator('[title="Views"]').inner_text()
 
-    price_el = soup.find("span", {"data-js": "price"})
-    if price_el:
-        stats["price"] = price_el.text.strip()
+            # Price
+            price = page.locator('[data-js="price"]').inner_text()
 
-    likes_el = soup.find("span", {"title": "Likes"})
-    if likes_el:
-        stats["likes"] = likes_el.text.strip()
+            # Total earned
+            total = page.locator('[title="Total earned"]').inner_text()
 
-    downloads_el = soup.find("span", {"title": "Downloads"})
-    if downloads_el:
-        stats["downloads"] = downloads_el.text.strip()
+            browser.close()
 
-    views_el = soup.find("span", {"title": "Views"})
-    if views_el:
-        stats["views"] = views_el.text.strip()
+            return {
+                "title": title,
+                "price": price,
+                "likes": likes,
+                "downloads": downloads,
+                "views": views,
+                "total": total
+            }
 
-    total_el = soup.find("span", {"title": "Total earned"})
-    if total_el:
-        stats["total"] = total_el.text.strip()
-
-    return stats
-
-@app.route("/")
-def home():
-    return "Cults3D Proxy Server Running! Use /stats?url=...", 200
+        except Exception as e:
+            browser.close()
+            return {"error": str(e)}
 
 @app.route("/stats")
 def stats():
     url = request.args.get("url")
     if not url:
-        return jsonify({"error": "missing ?url="})
-    return jsonify(parse_model(url))
+        return jsonify({"error": "missing ?url=xxx"})
+    return jsonify(scrape_model(url))
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+@app.route("/")
+def home():
+    return "Cults3D Playwright Proxy Running!"
