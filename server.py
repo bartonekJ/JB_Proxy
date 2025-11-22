@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 import requests
 from bs4 import BeautifulSoup
+import os
 
 app = Flask(__name__)
 
@@ -50,7 +51,7 @@ def parse_model(url):
 
 @app.route("/")
 def home():
-    return "Cults3D Proxy Running. Use /stats?url=...", 200
+    return "Cults3D Proxy Server Running! Use /stats?url=...", 200
 
 @app.route("/stats")
 def stats():
@@ -58,3 +59,7 @@ def stats():
     if not url:
         return jsonify({"error": "missing ?url="})
     return jsonify(parse_model(url))
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
