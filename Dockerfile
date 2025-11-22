@@ -1,42 +1,25 @@
-FROM python:3.10-slim
+FROM mcr.microsoft.com/playwright/python:v1.49.0-focal
+
+# Výchozí playwright image už obsahuje:
+# - chromium, webkit, firefox
+# - správné knihovny
+# - správnou cache strukturu
+
+WORKDIR /app
 
 # Prevent tzdata from blocking installs
 ENV DEBIAN_FRONTEND=noninteractive
 
-WORKDIR /app
-
-# Install OS packages required by Playwright browsers
-RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    ca-certificates \
-    libnss3 \
-    libx11-6 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxi6 \
-    libxrender1 \
-    libxtst6 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    libpangocairo-1.0-0 \
-    libgtk-3-0 \
-    libxshmfence1 \
-    && rm -rf /var/lib/apt/lists/*
-
+# Zkopíruj Python požadavky
 COPY requirements.txt .
+
+# Nainstaluj Python knihovny (Flask, etc)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers
-RUN playwright install --with-deps chromium
-
+# Zkopíruj projekt
 COPY . .
 
 EXPOSE 8000
 
+# Render vyžaduje, aby server běžel na 0.0.0.0
 CMD ["gunicorn", "-b", "0.0.0.0:8000", "server:app"]
